@@ -1,0 +1,37 @@
+# Verification policy for images produced by secure-pipeline.yml.
+#
+# Keyless (Sigstore) signing — no private key is generated, stored, or
+# rotated. The signer's identity is the GitHub Actions OIDC token itself:
+# Fulcio issues a short-lived certificate binding that identity to the
+# signature, and the signing event is recorded in the public Rekor
+# transparency log. There is nothing to leak and nothing to rotate.
+signing:
+  method: keyless
+  tool: cosign
+  transparency-log: https://rekor.sigstore.dev
+
+verification:
+  # Accepts a signature only if it was produced by *this* workflow file,
+  # in *this* repo, regardless of which ref triggered the run — a push to
+  # main and a pull_request run present different refs in the certificate,
+  # so the identity match has to be a regexp, not a fixed string.
+  certificate-identity-regexp: "^https://github.com/Pinkish-Warrior/forgestack/\\.github/workflows/secure-pipeline\\.yml@refs/.*$"
+  certificate-oidc-issuer: "https://token.actions.githubusercontent.com"
+
+policy:
+  # `sign` (see secure-pipeline.yml) only runs if every job below
+  # succeeded first. That means a valid signature isn't just a checkbox —
+  # it's cryptographic proof the image cleared every one of these gates,
+  # not merely evidence the jobs were configured to run.
+  required-checks:
+    - sast               # Semgrep
+    - secrets-scan        # Gitleaks
+    - dependency-scan     # Trivy (filesystem)
+    - container-scan      # Trivy (image)
+    - codeql
+
+  # `deploy` cannot run without `gate` passing, and `gate` calls
+  # `cosign verify` with exactly the identity/issuer values above — so
+  # this file is documentation of the policy, and its values are also
+  # literally what's enforced, not just a description of intent.
+  enforced-by: gate job in .github/workflows/secure-pipeline.yml
