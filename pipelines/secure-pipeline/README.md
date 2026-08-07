@@ -5,15 +5,14 @@ gate → deploy.
 
 Runnable workflow: [`.github/workflows/secure-pipeline.yml`](../../.github/workflows/secure-pipeline.yml)
 
-## Status: build + 5 scan jobs + deploy (Phase 2, Day 9)
+## Status: complete (Phase 2, Day 10)
 
-`build` produces the image and hands it to `deploy` (and `container-scan`)
-via a build artifact (no registry needed yet). `sast`, `secrets-scan`,
-`dependency-scan`, and `codeql` run against source in parallel with
-`build`; `container-scan` needs the built image, so it runs after `build`.
-`deploy` now depends on all five scan jobs — a finding in any of them
-fails that job, which blocks `deploy` through the job's normal `needs`
-failure propagation.
+`build` produces the image, tags it for GHCR, and pushes it —
+`container-scan` and `deploy` each get the exact bits they need (a saved
+artifact for the former, a pull-by-digest for the latter). `sast`,
+`secrets-scan`, `dependency-scan`, and `codeql` run against source in
+parallel with `build`; `container-scan` needs the built image, so it runs
+after `build`.
 
 - **SAST** — [Semgrep](https://semgrep.dev), rules in
   [`security/semgrep/semgrep-rules.yaml`](../../security/semgrep/semgrep-rules.yaml):
@@ -31,20 +30,25 @@ failure propagation.
 - **Container scan** — Trivy image scan against the built `secure-app`
   image, same config file, CRITICAL/HIGH only, fails closed
   (`exit-code: 1`) on an unfixed match.
+- **Sign** — [Cosign](https://github.com/sigstore/cosign), keyless
+  (Sigstore/Fulcio/Rekor — no private key managed anywhere). `sign` only
+  runs once every scan job above has passed.
+- **Gate** — `cosign verify` against the identity/issuer policy in
+  [`security/cosign/cosign-policy.yaml`](../../security/cosign/cosign-policy.yaml).
+  This is the formal policy gate: `deploy` needs `gate`, and `gate` needs a
+  cryptographically valid signature, so passing is proof the image cleared
+  every scan — not just evidence the jobs were wired up to run.
 
-## Roadmap
-
-| Day | Adds |
-|---|---|
-| 10 | Cosign (image signing) + a formal policy gate — same `needs`-based blocking as today, made explicit and extended to cover severity thresholds |
+`main` also has branch protection requiring all of these checks, so a
+failing scan blocks the actual GitHub merge button on a PR, not just this
+pipeline's own internal `deploy` step.
 
 ## Why this exists
 
 This is the "after" side of the contrast: the same
 [`secure-app`](../../applications/secure-app) as `vulnerable-app`, minus the
 planted flaws, run through a pipeline that would have caught them had they
-been there. Once the gate lands (Day 10), this repo's own PRs into `main`
-are required to pass it too — the same rule the project demonstrates,
-applied to itself.
+been there. This repo's own PRs into `main` are required to pass it too —
+the same rule the project demonstrates, applied to itself.
 
 Compare against [`insecure-pipeline`](../insecure-pipeline).
