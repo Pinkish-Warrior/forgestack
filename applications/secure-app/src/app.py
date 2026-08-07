@@ -157,4 +157,9 @@ def create_app():
 app = create_app()
 
 if __name__ == "__main__":
+    # nosemgrep: python.flask.security.audit.app-run-param-config.avoid_app_run_with_bad_host
+    # Binding 0.0.0.0 is required here, not a widening of exposure: this
+    # runs inside a container (see ../Dockerfile), and the actual exposure
+    # boundary is which host port gets published, not the bind address
+    # inside the container network namespace.
     app.run(host="0.0.0.0", port=5000)
