@@ -1,0 +1,36 @@
+rules:
+  - id: sql-injection-string-formatting
+    languages: [python]
+    severity: ERROR
+    message: >-
+      SQL query built via f-string/string interpolation instead of a
+      parameterized query. User input reaching this pattern can alter the
+      query structure (SQL injection). Use `?`/`%s` placeholders and pass
+      values as execute() parameters instead.
+    metadata:
+      category: security
+      cwe: "CWE-89: Improper Neutralization of Special Elements used in an SQL Command"
+      references:
+        - https://owasp.org/Top10/A03_2021-Injection/
+    pattern-either:
+      - pattern: $DB.execute(f"...")
+      - pattern: |
+          $SQL = f"..."
+          ...
+          $DB.execute($SQL)
+
+  - id: hardcoded-flask-secret-key
+    languages: [python]
+    severity: ERROR
+    message: >-
+      Flask SECRET_KEY assigned a hardcoded string literal instead of being
+      read from the environment. Anyone with source access can forge signed
+      session cookies (full authentication bypass).
+    metadata:
+      category: security
+      cwe: "CWE-798: Use of Hard-coded Credentials"
+      references:
+        - https://owasp.org/Top10/A02_2021-Cryptographic_Failures/
+    pattern-either:
+      - pattern: $APP.config["SECRET_KEY"] = "..."
+      - pattern: $APP.secret_key = "..."

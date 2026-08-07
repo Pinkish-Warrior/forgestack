@@ -1,12 +1,12 @@
 name: Secure Pipeline
 
-# Skeleton (Phase 2, Day 7): build stage + deploy stage only, using an
-# artifact hand-off so no registry credentials are needed yet. The gap
-# between build and deploy is where the gates go in:
-#   Day 8  — Semgrep (SAST) + secrets scan
+# Build -> SAST + secrets scan -> deploy. Day 8 of the plan: sast and
+# secrets-scan run against source in parallel with build, and deploy now
+# depends on both — a finding in either blocks deploy via the job's default
+# failure propagation. Still to come:
 #   Day 9  — Trivy (dependency + container scan) + CodeQL
-#   Day 10 — Cosign (image signing) + policy gate: deploy only runs if
-#            every scan job above passed and nothing high/critical was found
+#   Day 10 — Cosign (image signing) + a formal policy gate: deploy only
+#            runs if every scan job passed and nothing high/critical was found
 # secure-app requires SECRET_KEY at runtime (fails closed if unset) — the
 # deploy step below passes a throwaway CI value, not a real secret.
 
@@ -42,12 +42,49 @@ jobs:
           path: secure-app.tar
           retention-days: 1
 
-  # Days 8-10 add scan jobs here, each with `needs: build`. Once they
-  # exist, `deploy.needs` below becomes the full list so a failing scan
-  # blocks deploy.
+  sast:
+    name: SAST (Semgrep)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Semgrep
+        run: pip install semgrep
+
+      - name: Run Semgrep
+        run: |
+          semgrep scan \
+            --config security/semgrep/semgrep-rules.yaml \
+            --config p/security-audit \
+            --error \
+            applications/secure-app
+
+  secrets-scan:
+    name: Secrets scan (Gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Days 9-10 add Trivy/CodeQL/Cosign jobs here. Once they exist,
+  # `deploy.needs` below becomes the full list so a failing scan blocks
+  # deploy — Day 10 turns this into a formal policy gate.
   deploy:
     name: Deploy
-    needs: build
+    needs: [build, sast, secrets-scan]
     runs-on: ubuntu-latest
     steps:
       - name: Download image artifact

@@ -5,19 +5,28 @@ gate → deploy.
 
 Runnable workflow: [`.github/workflows/secure-pipeline.yml`](../../.github/workflows/secure-pipeline.yml)
 
-## Status: skeleton (Phase 2, Day 7)
+## Status: build + SAST + secrets scan + deploy (Phase 2, Day 8)
 
-Right now this only has **build** and **deploy** — the image is built,
-handed off via a build artifact (no registry needed yet), and deployed with
-a smoke test proving it's serving traffic. No scanning exists yet.
+`build` produces the image and hands it to `deploy` via a build artifact
+(no registry needed yet). `sast` and `secrets-scan` run against source in
+parallel with `build`. `deploy` now depends on all three — a finding in
+either scan job fails that job, which blocks `deploy` through the job's
+normal `needs` failure propagation.
+
+- **SAST** — [Semgrep](https://semgrep.dev), rules in
+  [`security/semgrep/semgrep-rules.yaml`](../../security/semgrep/semgrep-rules.yaml):
+  two custom rules that target `vulnerable-app`'s exact planted flaws
+  (SQL built via f-string, hardcoded Flask `SECRET_KEY`), plus the
+  `p/security-audit` registry ruleset for broader coverage.
+- **Secrets scan** — [Gitleaks](https://github.com/gitleaks/gitleaks),
+  default ruleset, via `gitleaks/gitleaks-action`.
 
 ## Roadmap
 
 | Day | Adds |
 |---|---|
-| 8 | Semgrep (SAST) + secrets scan |
 | 9 | Trivy (dependency + container scan) + CodeQL |
-| 10 | Cosign (image signing) + policy gate — `deploy` starts depending on every scan job, so a high/critical finding blocks it |
+| 10 | Cosign (image signing) + a formal policy gate — same `needs`-based blocking as today, made explicit and extended to cover severity thresholds |
 
 ## Why this exists
 
