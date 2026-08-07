@@ -1,0 +1,4 @@
+__pycache__/
+*.pyc
+src/app.db
+src/uploads/

@@ -1,0 +1,4 @@
+Flask==3.0.3
+# FLAW: pinned to a version affected by CVE-2024-34069 (Werkzeug debugger
+# RCE), fixed in 3.0.3 — kept old on purpose for Trivy/dependency scanning.
+Werkzeug==3.0.1
