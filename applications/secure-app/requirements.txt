@@ -1,0 +1,4 @@
+Flask==3.0.3
+# FIX: patched version — resolves CVE-2024-34069 present in the 3.0.1 pin
+# used by vulnerable-app.
+Werkzeug==3.0.3
