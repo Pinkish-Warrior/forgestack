@@ -17,6 +17,11 @@ on:
     paths:
       - "applications/secure-app/**"
       - ".github/workflows/secure-pipeline.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "applications/secure-app/**"
+      - ".github/workflows/secure-pipeline.yml"
   workflow_dispatch:
 
 jobs:
