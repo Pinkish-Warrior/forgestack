@@ -1,12 +1,13 @@
 name: Secure Pipeline
 
-# Build -> SAST + secrets scan -> deploy. Day 8 of the plan: sast and
-# secrets-scan run against source in parallel with build, and deploy now
-# depends on both — a finding in either blocks deploy via the job's default
-# failure propagation. Still to come:
-#   Day 9  — Trivy (dependency + container scan) + CodeQL
-#   Day 10 — Cosign (image signing) + a formal policy gate: deploy only
-#            runs if every scan job passed and nothing high/critical was found
+# Build -> SAST + secrets scan + dependency/container scan + CodeQL ->
+# deploy. Day 9 of the plan adds dependency-scan, container-scan, and
+# codeql, all running in parallel with (or after) build; deploy now
+# depends on every scan job, so a finding in any of them blocks it via
+# the job's default failure propagation. Still to come:
+#   Day 10 — Cosign (image signing) + a formal policy gate: same
+#            needs-based blocking as today, made explicit and extended
+#            to cover severity thresholds
 # secure-app requires SECRET_KEY at runtime (fails closed if unset) — the
 # deploy step below passes a throwaway CI value, not a real secret.
 
@@ -79,12 +80,63 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # Days 9-10 add Trivy/CodeQL/Cosign jobs here. Once they exist,
-  # `deploy.needs` below becomes the full list so a failing scan blocks
-  # deploy — Day 10 turns this into a formal policy gate.
+  dependency-scan:
+    name: Dependency scan (Trivy)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Trivy (filesystem)
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: fs
+          scan-ref: applications/secure-app
+          trivy-config: security/trivy/trivy-config.yaml
+
+  container-scan:
+    name: Container scan (Trivy)
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: secure-app-image
+
+      - name: Load image
+        run: docker load -i secure-app.tar
+
+      - name: Run Trivy (image)
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: image
+          image-ref: secure-app:${{ github.sha }}
+          trivy-config: security/trivy/trivy-config.yaml
+
+  codeql:
+    name: SAST (CodeQL)
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: python
+          config-file: security/codeql/codeql-config.yml
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@v3
+
+  # Day 10 adds Cosign (image signing) and turns this needs-list into a
+  # formal policy gate with explicit severity thresholds.
   deploy:
     name: Deploy
-    needs: [build, sast, secrets-scan]
+    needs: [build, sast, secrets-scan, dependency-scan, container-scan, codeql]
     runs-on: ubuntu-latest
     steps:
       - name: Download image artifact

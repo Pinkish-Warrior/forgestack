@@ -1,0 +1,10 @@
+name: "ForgeStack CodeQL config"
+
+queries:
+  - uses: security-and-quality
+
+paths:
+  - applications/secure-app/src
+
+paths-ignore:
+  - applications/vulnerable-app
