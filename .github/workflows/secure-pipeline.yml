@@ -9,6 +9,13 @@ name: Secure Pipeline
 # every gate, not just a checkbox — see security/cosign/cosign-policy.yaml.
 # secure-app requires SECRET_KEY at runtime (fails closed if unset) — the
 # deploy step below passes a throwaway CI value, not a real secret.
+#
+# Gotcha: required status checks are only satisfied by check suites born
+# from THIS workflow's own `pull_request` event on a given commit — a
+# `workflow_dispatch` run against the same SHA reports success but never
+# attaches to the PR's merge gate. A PR that doesn't touch a path below
+# can never trigger a real run, so it can never merge. Docs-only PRs need
+# to touch this file (as this comment did) to get a legitimate green run.
 
 on:
   push:

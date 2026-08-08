@@ -51,4 +51,33 @@ planted flaws, run through a pipeline that would have caught them had they
 been there. This repo's own PRs into `main` are required to pass it too —
 the same rule the project demonstrates, applied to itself.
 
+### Where the gate lives
+
+"The gate" is Semgrep, CodeQL, Gitleaks, Trivy, and Cosign's verify step —
+and where it lives matters as much as what it checks. There are two places
+a security check can sit:
+
+- **After deploy** — code merges, ships, and *then* something scans it and
+  reports "this shipped with a SQL injection." Useful for visibility, but
+  the bug already reached users by the time anyone knows.
+- **On the pull request, before merge** — opening a PR into `main` runs
+  this pipeline as a required check. If any scan fails, the check fails,
+  and branch protection means the Merge button isn't clickable. The bug
+  never becomes part of `main` at all, let alone gets deployed.
+
+`secure-pipeline.yml` is wired for the second one: it triggers on
+`pull_request` (not just `push`), and every job in it — including `gate` —
+is a required status check on `main`. That's what makes it a gate rather
+than a report: prevention instead of detection, and it's structural, not a
+policy someone could choose to ignore, since `enforce_admins` is on and
+there's no bypass.
+
+To be precise about what's actually been demonstrated versus what's
+designed to happen: no PR in this repo's history has yet been blocked by a
+failing required check — the pipeline bugs found while building this
+(the Trivy version tag, the nosemgrep placement) were fixed before branch
+protection existed, and every PR since has passed cleanly. The mechanism
+is real and live today; the "red X blocking a PR" moment itself is still
+waiting for a real failure to happen against it.
+
 Compare against [`insecure-pipeline`](../insecure-pipeline).
