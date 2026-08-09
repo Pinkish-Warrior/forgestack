@@ -1,6 +1,10 @@
 # ForgeStack — DevSecOps Playground
 
-> **TL;DR:** Same app, two assembly lines. One ships bugs to production. The other catches them before they leave the factory. This repo is built to prove it with a real exploit — same attack, run against both, different outcomes. (Pipelines are done; the exploit demo itself is still coming — see [Status](#status).)
+> **TL;DR:** Same app, two assembly lines. One ships bugs to production. The other catches them before they leave the factory. This repo proves it with a real exploit — same attack, run against both, different outcomes.
+
+![Same SQLi payload run against vulnerable-app and secure-app — vulnerable-app leaks rows including password hashes, secure-app returns nothing](docs/attack-demo.gif)
+
+Full write-up and reproduction steps: [`docs/attack-demo.md`](docs/attack-demo.md).
 
 ---
 
@@ -57,11 +61,12 @@ forgestack/
 ├── pipelines/             # human-readable pipeline docs
 ├── .github/workflows/     # the actual runnable GitHub Actions
 ├── security/              # config for Semgrep, Trivy, CodeQL, Cosign
-├── reports/                # sample findings report (planned, Phase 3)
+├── reports/                # sample findings report + captured exploit run
 └── docs/
     ├── references.md      # background reading (SAST/DAST, tool docs)
-    ├── architecture.md    # diagram + narrative (planned, Phase 3)
-    └── attack-demo.md     # exact exploit steps (planned, Phase 3)
+    ├── architecture.md    # pipeline diagram + narrative
+    ├── attack-demo.md     # exact exploit steps + reproduction
+    └── attack-demo.gif    # recorded proof: same attack, both apps
 ```
 
 ## ⚠️ Disclaimer
@@ -75,10 +80,14 @@ forgestack/
 signs, and verifies as described above — every part of that is real and
 running today, not aspirational.
 
-**Phase 3 (the actual exploit proof) is still pending**: scripting the
-attack, running it against both pipelines side by side, generating the
-findings report, and recording the before/after demo. This README will get
-the architecture diagram and demo GIF once that's done.
+**Phase 3 (the exploit proof) is done**: the attack is scripted and run
+for real against both apps (see the GIF above and
+[`docs/attack-demo.md`](docs/attack-demo.md)), the secure pipeline's gate
+is verified to actually block a reintroduced vulnerability, every PR gets
+an auto-generated findings report ([sample](reports/sample-findings.md)),
+and [`docs/architecture.md`](docs/architecture.md) has the pipeline
+diagram and the proof behind it. Only remaining: a final README pass
+(Day 15).
 
 ## References
 
