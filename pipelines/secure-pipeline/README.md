@@ -73,11 +73,13 @@ policy someone could choose to ignore, since `enforce_admins` is on and
 there's no bypass.
 
 To be precise about what's actually been demonstrated versus what's
-designed to happen: no PR in this repo's history has yet been blocked by a
-failing required check — the pipeline bugs found while building this
-(the Trivy version tag, the nosemgrep placement) were fixed before branch
-protection existed, and every PR since has passed cleanly. The mechanism
-is real and live today; the "red X blocking a PR" moment itself is still
-waiting for a real failure to happen against it.
+designed to happen: every real PR in this repo's history (#1-#4, #7) has
+passed cleanly, since none of them introduced a genuine vulnerability. The
+block was proven separately, on purpose:
+[PR #5](https://github.com/Pinkish-Warrior/forgestack/pull/5) reintroduced
+a real SQL injection into `secure-app` on a throwaway branch, came back
+`BLOCKED` via the GitHub API, and was closed unmerged once confirmed. So
+the mechanism isn't just live today — it's been tested against a real
+failure and held.
 
 Compare against [`insecure-pipeline`](../insecure-pipeline).

@@ -14,8 +14,12 @@ name: Secure Pipeline
 # from THIS workflow's own `pull_request` event on a given commit — a
 # `workflow_dispatch` run against the same SHA reports success but never
 # attaches to the PR's merge gate. A PR that doesn't touch a path below
-# can never trigger a real run, so it can never merge. Docs-only PRs need
-# to touch this file (as this comment did) to get a legitimate green run.
+# can never trigger a real run, so it can never merge. Hit this twice
+# (PR #4, then again wiring in the Day 14 docs) before fixing it properly:
+# docs/**, README.md, and pipelines/** are now included below specifically
+# so a docs-only PR triggers a real run and can merge without a throwaway
+# workflow-file edit. Costs a few extra CI minutes on doc-only changes;
+# worth it since this recurs on every doc-only PR otherwise.
 
 on:
   push:
@@ -23,11 +27,17 @@ on:
     paths:
       - "applications/secure-app/**"
       - ".github/workflows/secure-pipeline.yml"
+      - "docs/**"
+      - "README.md"
+      - "pipelines/**"
   pull_request:
     branches: [main]
     paths:
       - "applications/secure-app/**"
       - ".github/workflows/secure-pipeline.yml"
+      - "docs/**"
+      - "README.md"
+      - "pipelines/**"
   workflow_dispatch:
 
 jobs:
