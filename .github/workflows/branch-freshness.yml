@@ -1,0 +1,103 @@
+name: Branch Freshness Check
+
+# Notifies (does not block) when a PR's branch has fallen behind `main`.
+# Local main refs only update on an explicit fetch/pull, so a branch can
+# silently drift behind for days before anyone notices -- caught once by
+# hand on 2026-08-09 (local main was 3 commits stale). This surfaces the
+# same check automatically on every PR, for every contributor, instead of
+# relying on someone remembering to `git pull main` first. Deliberately
+# NOT added to required status checks: falling behind isn't itself a
+# security issue, just a heads-up to sync before merging.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  check-freshness:
+    name: Check branch is up to date with main
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compare against main
+        id: compare
+        run: |
+          git fetch origin main
+          MERGE_BASE=$(git merge-base HEAD origin/main)
+          MAIN_HEAD=$(git rev-parse origin/main)
+          if [ "$MERGE_BASE" != "$MAIN_HEAD" ]; then
+            BEHIND=$(git rev-list --count "$MERGE_BASE..origin/main")
+            echo "stale=true" >> "$GITHUB_OUTPUT"
+            echo "behind=$BEHIND" >> "$GITHUB_OUTPUT"
+          else
+            echo "stale=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Comment if stale
+        if: steps.compare.outputs.stale == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const marker = '<!-- branch-freshness-check -->';
+            const behind = '${{ steps.compare.outputs.behind }}';
+            const headRef = context.payload.pull_request.head.ref;
+            const body = `${marker}\n⚠️ This branch is **${behind} commit(s) behind \`main\`**. Sync before merging:\n\n\`\`\`\ngit checkout main && git pull\ngit checkout ${headRef} && git merge main\n\`\`\``;
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c => c.body.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+      - name: Resolve comment if now fresh
+        if: steps.compare.outputs.stale == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const marker = '<!-- branch-freshness-check -->';
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c => c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body: `${marker}\n✅ Branch is now up to date with \`main\`.`,
+              });
+            }
+
+      - name: Fail if stale
+        if: steps.compare.outputs.stale == 'true'
+        run: |
+          echo "Branch is ${{ steps.compare.outputs.behind }} commit(s) behind main." >&2
+          exit 1

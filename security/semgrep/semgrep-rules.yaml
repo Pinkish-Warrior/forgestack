@@ -2,6 +2,7 @@ rules:
   - id: sql-injection-string-formatting
     languages: [python]
     severity: ERROR
+    mode: taint
     message: >-
       SQL query built via f-string/string interpolation instead of a
       parameterized query. User input reaching this pattern can alter the
@@ -12,12 +13,18 @@ rules:
       cwe: "CWE-89: Improper Neutralization of Special Elements used in an SQL Command"
       references:
         - https://owasp.org/Top10/A03_2021-Injection/
-    pattern-either:
-      - pattern: $DB.execute(f"...")
-      - pattern: |
-          $SQL = f"..."
-          ...
-          $DB.execute($SQL)
+    # Taint mode (source: any f-string with an interpolation, sink: the
+    # query argument of .execute()) instead of an exact AST-shape pattern.
+    # A plain `$SQL = f"..." ... $DB.execute($SQL)` pattern silently missed
+    # this when the f-string was built from two adjacent literals (Python
+    # merges them into one JoinedStr at parse time; Semgrep's shape match
+    # didn't) -- confirmed by hand 2026-08-09 against a real reintroduced
+    # SQLi that Semgrep passed clean. Taint tracking follows the value
+    # regardless of how many literals/reassignments built it.
+    pattern-sources:
+      - pattern: f"...{$X}..."
+    pattern-sinks:
+      - pattern: $DB.execute($SQL)
 
   - id: hardcoded-flask-secret-key
     languages: [python]
