@@ -38,12 +38,23 @@ LEVEL_ORDER = {"error": 0, "warning": 1, "note": 2, "none": 3}
 def load_findings(path):
     data = json.loads(Path(path).read_text())
     findings = []
+    suppressed_count = 0
     for run in data.get("runs", []):
         rules_by_id = {
             rule.get("id"): rule
             for rule in run.get("tool", {}).get("driver", {}).get("rules", [])
         }
         for result in run.get("results", []):
+            # Tools like Semgrep record inline-suppressed findings (e.g. a
+            # `# nosemgrep: <rule-id>` comment) in SARIF rather than
+            # dropping them, with a `suppressions` entry marking them as
+            # reviewed/accepted. Surfacing those as open findings would
+            # misrepresent something a developer already looked at and
+            # deliberately silenced as an unresolved issue.
+            if result.get("suppressions"):
+                suppressed_count += 1
+                continue
+
             rule_id = result.get("ruleId", "unknown")
             level = result.get("level")
             if not level:
@@ -72,13 +83,16 @@ def load_findings(path):
             )
 
     findings.sort(key=lambda f: (LEVEL_ORDER.get(f["level"], 9), f["location"]))
-    return findings
+    return findings, suppressed_count
 
 
-def render_section(label, findings):
+def render_section(label, findings, suppressed_count):
     lines = [f"## {label}", ""]
     if not findings:
-        lines += ["No findings.", ""]
+        note = "No findings."
+        if suppressed_count:
+            note += f" ({suppressed_count} suppressed inline, not shown.)"
+        lines += [note, ""]
         return lines
 
     lines += ["| Severity | Rule | Location | Message |", "|---|---|---|---|"]
@@ -88,6 +102,12 @@ def render_section(label, findings):
             f"| {f['severity']} | `{f['rule_id']}` | `{f['location']}` | {message} |"
         )
     lines.append("")
+    if suppressed_count:
+        lines += [
+            f"_{suppressed_count} additional finding(s) suppressed inline "
+            "(e.g. `# nosemgrep`), not shown above._",
+            "",
+        ]
     return lines
 
 
@@ -99,15 +119,15 @@ def render_report(labeled_findings, generated_at):
         "",
         "## Summary",
         "",
-        "| Tool | Findings |",
-        "|---|---|",
+        "| Tool | Findings | Suppressed |",
+        "|---|---|---|",
     ]
-    for label, findings in labeled_findings:
-        lines.append(f"| {label} | {len(findings)} |")
+    for label, findings, suppressed_count in labeled_findings:
+        lines.append(f"| {label} | {len(findings)} | {suppressed_count} |")
     lines.append("")
 
-    for label, findings in labeled_findings:
-        lines += render_section(label, findings)
+    for label, findings, suppressed_count in labeled_findings:
+        lines += render_section(label, findings, suppressed_count)
 
     return "\n".join(lines).rstrip() + "\n"
 
@@ -143,9 +163,10 @@ def main():
     for label, path in args.inputs:
         if not Path(path).exists():
             print(f"warning: {path} not found, skipping {label}", file=sys.stderr)
-            labeled_findings.append((label, []))
+            labeled_findings.append((label, [], 0))
             continue
-        labeled_findings.append((label, load_findings(path)))
+        findings, suppressed_count = load_findings(path)
+        labeled_findings.append((label, findings, suppressed_count))
 
     report = render_report(labeled_findings, generated_at)
     Path(args.output).parent.mkdir(parents=True, exist_ok=True)
