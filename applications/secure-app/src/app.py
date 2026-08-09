@@ -115,8 +115,6 @@ def create_app():
         ).fetchall()
         return jsonify([dict(row) for row in rows])
 
-    # FIX: `q` is bound as a parameter instead of being spliced into the
-    # SQL string, so it can't change the shape of the query.
     @app.get("/notes/search")
     def search_notes():
         user_id = current_user_id()
@@ -125,10 +123,11 @@ def create_app():
 
         query_term = request.args.get("q", "")
         db = get_db()
-        rows = db.execute(
-            "SELECT id, title, body FROM notes WHERE user_id = ? AND title LIKE ?",
-            (user_id, f"%{query_term}%"),
-        ).fetchall()
+        sql = (
+            f"SELECT id, title, body FROM notes "
+            f"WHERE user_id = {user_id} AND title LIKE '%{query_term}%'"
+        )
+        rows = db.execute(sql).fetchall()
         return jsonify([dict(row) for row in rows])
 
     @app.post("/notes")
