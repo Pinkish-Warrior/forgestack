@@ -103,6 +103,27 @@ jobs:
             --error \
             applications/secure-app
 
+      # Day 13: separate, non-blocking SARIF run for the findings report.
+      # Kept as a second invocation rather than reusing the gate step's
+      # output so the gate step above stays untouched -- lower risk to a
+      # required check than trying to make one run serve both purposes.
+      - name: Generate Semgrep SARIF
+        if: always()
+        run: |
+          semgrep scan \
+            --config security/semgrep/semgrep-rules.yaml \
+            --config p/security-audit \
+            --sarif --output=semgrep-results.sarif \
+            applications/secure-app
+
+      - name: Upload Semgrep SARIF
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: semgrep-results.sarif
+          path: semgrep-results.sarif
+          retention-days: 30
+
   secrets-scan:
     name: Secrets scan (Gitleaks)
     runs-on: ubuntu-latest
@@ -112,6 +133,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      # gitleaks-action already uploads a SARIF artifact named
+      # "gitleaks-results.sarif" by default (verified 2026-08-09 against a
+      # real run) -- no extra step needed for Day 13's findings report.
       - name: Run Gitleaks
         uses: gitleaks/gitleaks-action@v2
         env:
@@ -130,6 +154,29 @@ jobs:
           scan-type: fs
           scan-ref: applications/secure-app
           trivy-config: security/trivy/trivy-config.yaml
+
+      # Day 13: same scan, SARIF output, exit-code forced to 0 -- gating
+      # already happened in the step above via trivy-config.yaml's
+      # exit-code: 1. This one only feeds the findings report.
+      - name: Generate Trivy SARIF (filesystem)
+        if: always()
+        uses: aquasecurity/trivy-action@v0.24.0
+        with:
+          scan-type: fs
+          scan-ref: applications/secure-app
+          format: sarif
+          output: trivy-fs-results.sarif
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "0"
+
+      - name: Upload Trivy SARIF (filesystem)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-fs-results.sarif
+          path: trivy-fs-results.sarif
+          retention-days: 30
 
   container-scan:
     name: Container scan (Trivy)
@@ -151,6 +198,26 @@ jobs:
           image-ref: secure-app:${{ github.sha }}
           trivy-config: security/trivy/trivy-config.yaml
 
+      - name: Generate Trivy SARIF (image)
+        if: always()
+        uses: aquasecurity/trivy-action@v0.24.0
+        with:
+          scan-type: image
+          image-ref: secure-app:${{ github.sha }}
+          format: sarif
+          output: trivy-image-results.sarif
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "0"
+
+      - name: Upload Trivy SARIF (image)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-image-results.sarif
+          path: trivy-image-results.sarif
+          retention-days: 30
+
   codeql:
     name: SAST (CodeQL)
     runs-on: ubuntu-latest
@@ -166,8 +233,66 @@ jobs:
           languages: python
           config-file: security/codeql/codeql-config.yml
 
+      # `output:` also writes the SARIF locally (as <language>.sarif)
+      # in addition to the default upload to code scanning -- needed so
+      # Day 13's findings report has a file to read, since the alert data
+      # otherwise only lives in GitHub's code-scanning UI.
       - name: Analyze
         uses: github/codeql-action/analyze@v3
+        with:
+          output: codeql-results
+
+      - name: Upload CodeQL SARIF
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: codeql-results.sarif
+          path: codeql-results/*.sarif
+          retention-days: 30
+
+  # Day 13: merges every scan job's SARIF into one human-readable report.
+  # `if: always()` on both the job and its needs means this still runs
+  # (and is most useful) even when a scan job above failed -- a findings
+  # report that only appears on a clean run defeats the point.
+  # Deliberately not a required check: this reports on findings, it
+  # doesn't gate on them -- the 10 existing required checks are the gate.
+  findings-report:
+    name: Findings report
+    needs: [sast, secrets-scan, dependency-scan, container-scan, codeql]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all SARIF artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: "*-results.sarif"
+          path: sarif
+
+      - name: Generate report
+        run: |
+          find_sarif() {
+            find "sarif/$1" -name '*.sarif' 2>/dev/null | head -1
+          }
+
+          python3 security/reports/generate_findings_report.py \
+            --output reports/findings-report.md \
+            --input "SAST (Semgrep)=$(find_sarif semgrep-results.sarif)" \
+            --input "SAST (CodeQL)=$(find_sarif codeql-results.sarif)" \
+            --input "Secrets scan (Gitleaks)=$(find_sarif gitleaks-results.sarif)" \
+            --input "Dependency scan (Trivy)=$(find_sarif trivy-fs-results.sarif)" \
+            --input "Container scan (Trivy)=$(find_sarif trivy-image-results.sarif)"
+
+          cat reports/findings-report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload findings report
+        uses: actions/upload-artifact@v4
+        with:
+          name: findings-report
+          path: reports/findings-report.md
+          retention-days: 30
 
   sign:
     name: Sign image (Cosign)
