@@ -274,7 +274,7 @@ jobs:
       - name: Generate report
         run: |
           find_sarif() {
-            find "sarif/$1" -name '*.sarif' 2>/dev/null | head -1
+            find "sarif/$1" -type f -name '*.sarif' 2>/dev/null | head -1
           }
 
           python3 security/reports/generate_findings_report.py \
