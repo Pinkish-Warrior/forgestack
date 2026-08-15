@@ -6,6 +6,26 @@
 
 Full write-up: [`docs/attack-demo.md`](docs/attack-demo.md). Want to run it yourself? `make demo` — see [`WALKTHROUGH.md`](WALKTHROUGH.md).
 
+## For reviewers
+
+- **What this proves:** wiring real security tooling into a CI/CD gate
+  that actually stops a bad deploy — not just running scanners and hoping
+  someone reads the output.
+- **What's real, not illustrative:** both pipelines are live GitHub
+  Actions, the gate has verifiably blocked a real PR
+  ([PR #5](https://github.com/Pinkish-Warrior/forgestack/pull/5)), the
+  exploit is a script that actually runs (`make demo`), and the
+  screenshots in this repo are redacted real terminal sessions, not
+  mockups.
+- **~30 seconds:** the GIF above is the whole story — same attack, two
+  apps, two outcomes.
+- **~2 minutes, hands-on:** clone, run `make demo`, watch it happen
+  yourself — [`WALKTHROUGH.md`](WALKTHROUGH.md).
+- **Deeper reading:** pipeline job graph and proof in
+  [`docs/architecture.md`](docs/architecture.md); real debugging
+  incidents (not staged) in
+  [`docs/lessons-learned.md`](docs/lessons-learned.md).
+
 ---
 
 ## ELI5
@@ -90,6 +110,7 @@ forgestack/
 └── docs/
     ├── references.md            # background reading (SAST/DAST, tool docs)
     ├── architecture.md          # pipeline diagram + narrative
+    ├── lessons-learned.md       # real gotchas hit building this
     ├── attack-demo.md           # exact exploit steps + reproduction
     └── attack-demo.gif          # recorded proof: same attack, both apps
 ```
