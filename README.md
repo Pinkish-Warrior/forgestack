@@ -4,7 +4,7 @@
 
 ![Same SQLi payload run against vulnerable-app and secure-app — vulnerable-app leaks rows including password hashes, secure-app returns nothing](docs/attack-demo.gif)
 
-Full write-up and reproduction steps: [`docs/attack-demo.md`](docs/attack-demo.md).
+Full write-up: [`docs/attack-demo.md`](docs/attack-demo.md). Want to run it yourself? `make demo` — see [`WALKTHROUGH.md`](WALKTHROUGH.md).
 
 ---
 
@@ -65,6 +65,8 @@ This is a portfolio project built to demonstrate hands-on DevSecOps skills — n
 
 ```
 forgestack/
+├── WALKTHROUGH.md                # clone-to-running guide, incl. `make demo`
+├── Makefile                      # `make demo` — one-command build/run/exploit/teardown
 ├── applications/
 │   ├── vulnerable-app/          # the bug-ridden version
 │   └── secure-app/              # the hardened version
