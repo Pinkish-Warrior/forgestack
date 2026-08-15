@@ -47,54 +47,45 @@ Signing isn't the last word, though — a separate **gate** step then *verifies*
 
 ---
 
+## Status
+
+**Both phases are complete — everything below is real and running today, not aspirational.**
+
+- `insecure-pipeline` and `secure-pipeline` are both live; `secure-pipeline` runs all five scans, signs, and verifies on every PR. All 10 checks are required status checks on `main` — a PR with a failing scan is genuinely blocked, not just flagged.
+- The attack is scripted ([`security/exploits/sqli_exploit.py`](security/exploits/sqli_exploit.py)) and run for real against both apps — see the GIF above and [`docs/attack-demo.md`](docs/attack-demo.md).
+- The gate is verified to actually block a reintroduced vulnerability (proof: [PR #5](https://github.com/Pinkish-Warrior/forgestack/pull/5), closed unmerged, real red X).
+- Every PR gets an auto-generated findings report ([sample](reports/sample-findings.md)).
+- [`docs/architecture.md`](docs/architecture.md) has the full pipeline diagram and the proof behind it.
+
 ## Why this exists
 
-This is a portfolio project built to demonstrate hands-on DevSecOps skills — not just knowing the tool names, but wiring them into a real CI/CD gate that actually fails a build when it should. `main` enforces this for real: all 10 pipeline checks are required status checks, so a PR with a failing scan can't be merged — not just flagged, actually blocked.
+This is a portfolio project built to demonstrate hands-on DevSecOps skills — not just knowing the tool names, but wiring them into a real CI/CD gate that actually fails a build when it should.
 
 ## Structure
 
 ```
 forgestack/
 ├── applications/
-│   ├── vulnerable-app/    # the bug-ridden version
-│   └── secure-app/        # the hardened version
-├── pipelines/             # human-readable pipeline docs
-├── .github/workflows/     # the actual runnable GitHub Actions
-├── security/              # config for Semgrep, Trivy, CodeQL, Cosign
-├── reports/                # sample findings report + captured exploit run
+│   ├── vulnerable-app/          # the bug-ridden version
+│   └── secure-app/              # the hardened version
+├── pipelines/                   # human-readable pipeline docs
+├── .github/workflows/           # the actual runnable GitHub Actions
+├── security/
+│   ├── semgrep/, trivy/, codeql/, cosign/   # scanner + signing config
+│   ├── exploits/sqli_exploit.py             # the real attack, scripted
+│   └── reports/generate_findings_report.py  # SARIF → Markdown report generator
+├── reports/                     # sample findings report + captured exploit run
 └── docs/
-    ├── references.md      # background reading (SAST/DAST, tool docs)
-    ├── architecture.md    # pipeline diagram + narrative
-    ├── attack-demo.md     # exact exploit steps + reproduction
-    └── attack-demo.gif    # recorded proof: same attack, both apps
+    ├── references.md            # background reading (SAST/DAST, tool docs)
+    ├── architecture.md          # pipeline diagram + narrative
+    ├── attack-demo.md           # exact exploit steps + reproduction
+    └── attack-demo.gif          # recorded proof: same attack, both apps
 ```
 
 ## ⚠️ Disclaimer
 
 `vulnerable-app` is intentionally broken for educational/demo purposes. **Do not deploy it publicly or reuse it in production.**
 
-## Status
-
-**Phase 2 (both pipelines, fully gated) is complete.** `insecure-pipeline` and
-`secure-pipeline` are both live, and `secure-pipeline` runs all five scans,
-signs, and verifies as described above — every part of that is real and
-running today, not aspirational.
-
-**Phase 3 (the exploit proof) is done**: the attack is scripted and run
-for real against both apps (see the GIF above and
-[`docs/attack-demo.md`](docs/attack-demo.md)), the secure pipeline's gate
-is verified to actually block a reintroduced vulnerability, every PR gets
-an auto-generated findings report ([sample](reports/sample-findings.md)),
-and [`docs/architecture.md`](docs/architecture.md) has the pipeline
-diagram and the proof behind it. Only remaining: a final README pass
-(Day 15).
-
 ## References
 
-- [Semgrep](https://semgrep.dev/) — static analysis (SAST) engine used to catch bad code patterns
-- [CodeQL](https://codeql.github.com/) — GitHub's semantic code analysis engine
-- [Gitleaks](https://github.com/gitleaks/gitleaks) — secrets scanner
-- [Trivy](https://trivy.dev/) — vulnerability scanner for dependencies, containers, and IaC
-- [Cosign](https://docs.sigstore.dev/cosign/) — container signing and verification (part of [Sigstore](https://www.sigstore.dev/))
-
-For background on SAST vs. DAST and further reading, see [`docs/references.md`](docs/references.md).
+Tool-by-tool breakdown of what each one catches is in the [ELI5](#eli5) table above. For background on SAST vs. DAST and further reading, see [`docs/references.md`](docs/references.md).
