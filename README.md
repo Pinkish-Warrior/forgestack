@@ -53,6 +53,10 @@ Signing isn't the last word, though — a separate **gate** step then *verifies*
 
 - `insecure-pipeline` and `secure-pipeline` are both live; `secure-pipeline` runs all five scans, signs, and verifies on every PR. All 10 checks are required status checks on `main` — a PR with a failing scan is genuinely blocked, not just flagged.
 - The attack is scripted ([`security/exploits/sqli_exploit.py`](security/exploits/sqli_exploit.py)) and run for real against both apps — see the GIF above and [`docs/attack-demo.md`](docs/attack-demo.md).
+- It also reproduces by hand, not just via the script — a raw `curl` session against `vulnerable-app` walking through register → login → a normal search → the same UNION-based payload leaking another user's password hash:
+
+  ![Terminal session: registering a victim and attacker on vulnerable-app, then a UNION-based SQL injection through /notes/search leaking both users' password hashes](reports/screenshots/vulnerable-app.png)
+
 - The gate is verified to actually block a reintroduced vulnerability (proof: [PR #5](https://github.com/Pinkish-Warrior/forgestack/pull/5), closed unmerged, real red X).
 - Every PR gets an auto-generated findings report ([sample](reports/sample-findings.md)).
 - [`docs/architecture.md`](docs/architecture.md) has the full pipeline diagram and the proof behind it.
@@ -76,7 +80,9 @@ forgestack/
 │   ├── semgrep/, trivy/, codeql/, cosign/   # scanner + signing config
 │   ├── exploits/sqli_exploit.py             # the real attack, scripted
 │   └── reports/generate_findings_report.py  # SARIF → Markdown report generator
-├── reports/                     # sample findings report + captured exploit run
+├── reports/
+│   ├── sample-findings.md        # sample scan findings report
+│   └── screenshots/              # evidence: manual exploit repro, etc.
 └── docs/
     ├── references.md            # background reading (SAST/DAST, tool docs)
     ├── architecture.md          # pipeline diagram + narrative
