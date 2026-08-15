@@ -57,6 +57,10 @@ Signing isn't the last word, though — a separate **gate** step then *verifies*
 
   ![Terminal session: registering a victim and attacker on vulnerable-app, then a UNION-based SQL injection through /notes/search leaking both users' password hashes](reports/screenshots/vulnerable-app.png)
 
+  The identical sequence, identical payload, against `secure-app` instead — both injection attempts come back empty:
+
+  ![Terminal session: the same register/login/search/injection sequence run against secure-app — both the normal search and the UNION-based injection return an empty list](reports/screenshots/secure-app.png)
+
 - The gate is verified to actually block a reintroduced vulnerability (proof: [PR #5](https://github.com/Pinkish-Warrior/forgestack/pull/5), closed unmerged, real red X).
 - Every PR gets an auto-generated findings report ([sample](reports/sample-findings.md)).
 - [`docs/architecture.md`](docs/architecture.md) has the full pipeline diagram and the proof behind it.
