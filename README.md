@@ -4,7 +4,27 @@
 
 ![Same SQLi payload run against vulnerable-app and secure-app — vulnerable-app leaks rows including password hashes, secure-app returns nothing](docs/attack-demo.gif)
 
-Full write-up and reproduction steps: [`docs/attack-demo.md`](docs/attack-demo.md).
+Full write-up: [`docs/attack-demo.md`](docs/attack-demo.md). Want to run it yourself? `make demo` — see [`WALKTHROUGH.md`](WALKTHROUGH.md).
+
+## For reviewers
+
+- **What this proves:** wiring real security tooling into a CI/CD gate
+  that actually stops a bad deploy — not just running scanners and hoping
+  someone reads the output.
+- **What's real, not illustrative:** both pipelines are live GitHub
+  Actions, the gate has verifiably blocked a real PR
+  ([PR #5](https://github.com/Pinkish-Warrior/forgestack/pull/5)), the
+  exploit is a script that actually runs (`make demo`), and the
+  screenshots in this repo are redacted real terminal sessions, not
+  mockups.
+- **~30 seconds:** the GIF above is the whole story — same attack, two
+  apps, two outcomes.
+- **~2 minutes, hands-on:** clone, run `make demo`, watch it happen
+  yourself — [`WALKTHROUGH.md`](WALKTHROUGH.md).
+- **Deeper reading:** pipeline job graph and proof in
+  [`docs/architecture.md`](docs/architecture.md); real debugging
+  incidents (not staged) in
+  [`docs/lessons-learned.md`](docs/lessons-learned.md).
 
 ---
 
@@ -53,6 +73,14 @@ Signing isn't the last word, though — a separate **gate** step then *verifies*
 
 - `insecure-pipeline` and `secure-pipeline` are both live; `secure-pipeline` runs all five scans, signs, and verifies on every PR. All 10 checks are required status checks on `main` — a PR with a failing scan is genuinely blocked, not just flagged.
 - The attack is scripted ([`security/exploits/sqli_exploit.py`](security/exploits/sqli_exploit.py)) and run for real against both apps — see the GIF above and [`docs/attack-demo.md`](docs/attack-demo.md).
+- It also reproduces by hand, not just via the script — a raw `curl` session against `vulnerable-app` walking through register → login → a normal search → the same UNION-based payload leaking another user's password hash:
+
+  ![Terminal session: registering a victim and attacker on vulnerable-app, then a UNION-based SQL injection through /notes/search leaking both users' password hashes](reports/screenshots/vulnerable-app.png)
+
+  The identical sequence, identical payload, against `secure-app` instead — both injection attempts come back empty:
+
+  ![Terminal session: the same register/login/search/injection sequence run against secure-app — both the normal search and the UNION-based injection return an empty list](reports/screenshots/secure-app.png)
+
 - The gate is verified to actually block a reintroduced vulnerability (proof: [PR #5](https://github.com/Pinkish-Warrior/forgestack/pull/5), closed unmerged, real red X).
 - Every PR gets an auto-generated findings report ([sample](reports/sample-findings.md)).
 - [`docs/architecture.md`](docs/architecture.md) has the full pipeline diagram and the proof behind it.
@@ -65,6 +93,8 @@ This is a portfolio project built to demonstrate hands-on DevSecOps skills — n
 
 ```
 forgestack/
+├── WALKTHROUGH.md                # clone-to-running guide, incl. `make demo`
+├── Makefile                      # `make demo` — one-command build/run/exploit/teardown
 ├── applications/
 │   ├── vulnerable-app/          # the bug-ridden version
 │   └── secure-app/              # the hardened version
@@ -74,10 +104,13 @@ forgestack/
 │   ├── semgrep/, trivy/, codeql/, cosign/   # scanner + signing config
 │   ├── exploits/sqli_exploit.py             # the real attack, scripted
 │   └── reports/generate_findings_report.py  # SARIF → Markdown report generator
-├── reports/                     # sample findings report + captured exploit run
+├── reports/
+│   ├── sample-findings.md        # sample scan findings report
+│   └── screenshots/              # evidence: manual exploit repro, etc.
 └── docs/
     ├── references.md            # background reading (SAST/DAST, tool docs)
     ├── architecture.md          # pipeline diagram + narrative
+    ├── lessons-learned.md       # real gotchas hit building this
     ├── attack-demo.md           # exact exploit steps + reproduction
     └── attack-demo.gif          # recorded proof: same attack, both apps
 ```

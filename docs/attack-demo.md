@@ -19,6 +19,10 @@ the code, not because the attack was weakened for the demo.
 
 ## Reproduce it yourself
 
+Fastest path: `make demo` from the repo root — see
+[`WALKTHROUGH.md`](../WALKTHROUGH.md) for the one-command version and
+troubleshooting. The steps below are the same thing spelled out manually.
+
 Requires [Podman](https://podman.io/) (or Docker — see the note on engine
 neutrality in [`MAPPING.md`](../MAPPING.md)) and Python 3.
 

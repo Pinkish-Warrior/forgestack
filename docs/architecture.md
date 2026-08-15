@@ -84,4 +84,5 @@ recorded in [`docs/attack-demo.md`](attack-demo.md).
 - [`pipelines/insecure-pipeline/README.md`](../pipelines/insecure-pipeline/README.md) — the control this is measured against
 - [`docs/attack-demo.md`](attack-demo.md) — the exploit, the GIF, and how to reproduce both
 - [`reports/sample-findings.md`](../reports/sample-findings.md) — a real generated findings report, for what `findings-report` actually produces
+- [`docs/lessons-learned.md`](lessons-learned.md) — real debugging incidents hit building this, including the Semgrep/CodeQL gaps above
 - [`docs/references.md`](references.md) — background reading on SAST vs. DAST and the individual tools
